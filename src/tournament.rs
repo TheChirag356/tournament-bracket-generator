@@ -10,18 +10,12 @@ pub struct Team {
     pub members: Vec<Participant>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MatchNode {
-    pub team1: String,
-    pub team2: String,
+    pub team1: Option<Team>,
+    pub team2: Option<Team>,
     pub score1: i32,
     pub score2: i32,
-    pub next_match: Option<usize>, // Index of the next match node
-}
-
-#[derive(Debug)]
-pub struct TournamentGraph {
-    pub matches: Vec<MatchNode>, // All match nodes
 }
 
 #[derive(PartialEq, Clone)]
@@ -46,6 +40,16 @@ impl MatchType {
             MatchType::TwoVsTwo => 2,
             MatchType::ThreeVsThree => 3,
             MatchType::FourVsFour => 4,
+        }
+    }
+}
+
+impl MatchNode {
+    pub fn is_winner(&self) -> Team {
+        if self.score1 > self.score2 {
+            self.team1.clone().unwrap()
+        } else {
+            self.team2.clone().unwrap()
         }
     }
 }
@@ -113,16 +117,42 @@ pub fn generate_matches(tournamentui: &mut TournamentUI) {
     for (i, team) in teams.chunks(2).enumerate() {
         if team.len() == 2 {
             tournamentui.matches.push(MatchNode {
-                team1: team[0].team_to_string(),
-                team2: team[1].team_to_string(),
+                team1: Some(team[0].clone()),
+                team2: Some(team[1].clone()),
                 score1: 0,
                 score2: 0,
-                next_match: None, // You can calculate and assign this later
             });
         }
     }
 }
 
-pub fn generate_bracket(teams: &Vec<Team>, tournament_type: TournamentType) -> Vec<MatchNode> {
-    todo!();
+// matches: &Vec<MatchNode>, tournament_type: TournamentType
+pub fn next_round(tournamentui: &mut TournamentUI) {
+    if tournamentui.matches.len() == 1 {
+        if tournamentui.matches[0].score1 > tournamentui.matches[0].score2 {
+            tournamentui.winner = tournamentui.matches[0].team1.clone();
+        } else if tournamentui.matches[0].score1 < tournamentui.matches[0].score2 {
+            tournamentui.winner = tournamentui.matches[0].team2.clone();
+        } else {
+            tournamentui.winner = None;
+        }
+    }
+
+    let mut teams: Vec<Team> = Vec::new();
+    // Create new matches from winners
+    for matches in tournamentui.matches.iter() {
+        teams.push(matches.is_winner());
+    }
+
+    tournamentui.matches.clear();
+    for (i, team) in teams.chunks(2).enumerate() {
+        if team.len() == 2 {
+            tournamentui.matches.push(MatchNode {
+                team1: Some(team[0].clone()),
+                team2: Some(team[1].clone()),
+                score1: 0,
+                score2: 0,
+            });
+        }
+    }
 }

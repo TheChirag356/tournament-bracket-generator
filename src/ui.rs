@@ -8,9 +8,9 @@ pub struct TournamentUI {
     pub match_type: MatchType,
     pub tournament_type: TournamentType,
     pub state: TournamentUIState,
-    pub winner: Option<Team>,
     pub round_number: u8,
     pub matches: Vec<MatchNode>,
+    pub winner: Option<Team>,
 }
 
 pub enum TournamentUIState {
@@ -38,8 +38,7 @@ impl TournamentUI {
                 self.render_pre_match(ui);
             }
             TournamentUIState::Ongoing => {
-                // self.render_ongoing_match(ui, ctx);
-                self.render_tournament_graph(ui, ctx);
+                self.render_ongoing_match(ui, ctx);
             }
             TournamentUIState::Finished => {
                 self.render_finished_match(ui);
@@ -52,6 +51,7 @@ impl TournamentUI {
             ui.heading("Tournament Bracket Generator");
         });
         ui.separator();
+        ui.add_space(10.0);
         // Match type selection
         ui.horizontal(|ui| {
             ui.label("Match Type:");
@@ -60,6 +60,7 @@ impl TournamentUI {
             ui.radio_value(&mut self.match_type, MatchType::ThreeVsThree, "3v3");
             ui.radio_value(&mut self.match_type, MatchType::FourVsFour, "4v4");
         });
+        ui.add_space(10.0);
 
         // Tournament type selection
         ui.horizontal(|ui| {
@@ -87,6 +88,7 @@ impl TournamentUI {
             Color32::DARK_GRAY,
             "Hover for more information ont the tournament type.",
         );
+        ui.add_space(10.0);
 
         static mut TEMP_NAME: String = String::new();
 
@@ -127,79 +129,79 @@ impl TournamentUI {
         });
     }
 
-    fn render_ongoing_match(&mut self, ui: &mut egui::Ui, ctx: &eframe::egui::Context) {
-        // Increment round number if this function is tied to advancing the rounds
-        self.round_number += 1;
+    fn render_ongoing_match(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        self.round_number = 1;
 
-        // Create teams for the match
-        let teams = crate::tournament::create_teams(&self.participants, self.match_type.clone());
-
-        for team in teams.iter() {
-            ui.label(team.team_to_string());
-        }
-    }
-
-    fn render_tournament_graph(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        let painter = ui.painter(); // Get a painter for custom rendering
         crate::tournament::generate_matches(self);
 
-        let mut match_positions = Vec::new(); // Store positions of match nodes
+        let teams = &mut self.matches;
 
-        let node_width = 150.0;
-        let node_height = 50.0;
-        let padding = 20.0;
+        // egui::ScrollArea::both().show(ui, |ui| {
+        for (i, team) in teams.iter_mut().enumerate() {
+            let x_offset = 20.0;
+            let y_offset = 10.0 + (i as f32 * 120.0);
 
-        let mut x_offset = 10.0;
-        let mut y_offset = 10.0;
+            // Create a window for each match
+            egui::Window::new(format!("Match {}", i + 1))
+                .title_bar(false)
+                .movable(false)
+                .collapsible(false)
+                .anchor(egui::Align2::LEFT_TOP, egui::vec2(x_offset, y_offset))
+                .show(ctx, |ui| {
+                    match &team.team1 {
+                        Some(team1) => {
+                            ui.label(format!("Team {}: {}", i + 1, team1.team_to_string()));
 
-        for (i, match_node) in self.matches.iter().enumerate() {
-            // Calculate node position
-            let pos = egui::pos2(x_offset, y_offset);
+                            // Add DragValue for the score input
+                            ui.horizontal(|ui| {
+                                ui.label("Score: ");
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut team.score1.to_string())
+                                        .hint_text("Enter score"),
+                                );
+                            });
+                        }
+                        None => (),
+                    };
 
-            // Draw the match node as a rectangle
-            let rect = egui::Rect::from_min_size(pos, egui::vec2(node_width, node_height));
-            painter.rect_filled(rect, 5.0, egui::Color32::from_gray(100));
+                    match &team.team2 {
+                        Some(team2) => {
+                            ui.separator();
 
-            // Add team names and scores
-            painter.text(
-                rect.center(),
-                egui::Align2::CENTER_CENTER,
-                format!(
-                    "{} ({})\n{} ({})",
-                    match_node.team1, match_node.score1, match_node.team2, match_node.score2
-                ),
-                egui::FontId::proportional(16.0),
-                egui::Color32::WHITE,
-            );
+                            ui.label(format!("Team {}: {}", i + 1, team2.team_to_string()));
 
-            // Store position for edge drawing
-            match_positions.push(rect);
-
-            // Adjust offsets for the next node
-            y_offset += node_height + padding;
-
-            if (i + 1) % 4 == 0 {
-                // Example: Move to the next column every 4 nodes
-                x_offset += node_width + padding;
-                y_offset = 0.0;
-            }
+                            // Add DragValue for the score input
+                            ui.horizontal(|ui| {
+                                ui.label("Score: ");
+                                ui.add(
+                                    egui::TextEdit::singleline(&mut team.score1.to_string())
+                                        .hint_text("Enter score"),
+                                );
+                            });
+                        }
+                        None => (),
+                    };
+                });
         }
+        // });
 
-        // Draw edges between match nodes
-        for (i, match_node) in self.matches.iter().enumerate() {
-            if let Some(next_index) = match_node.next_match {
-                if let Some(start_rect) = match_positions.get(i) {
-                    if let Some(end_rect) = match_positions.get(next_index) {
-                        let start = start_rect.center_bottom(); // Start at the bottom of the current match
-                        let end = end_rect.center_top(); // End at the top of the next match
-                        painter.line_segment(
-                            [start, end],
-                            egui::Stroke::new(2.0, egui::Color32::WHITE),
-                        );
-                    }
+        egui::TopBottomPanel::bottom("next_round_value").show(ctx, |ui| {
+            ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+                let mut button_content = String::new();
+                if self.matches.len() == 1 {
+                    button_content = "Finish Tournament".to_string();
+                } else {
+                    button_content = "Next Round".to_string();
                 }
-            }
-        }
+
+                let next_round_button = ui.add_enabled(true, Button::new(button_content));
+
+                if next_round_button.clicked() {
+                    crate::tournament::next_round(self);
+                    self.round_number += 1;
+                }
+            });
+        });
     }
 
     fn render_finished_match(&mut self, ui: &mut Ui) {
