@@ -45,11 +45,19 @@ impl MatchType {
 }
 
 impl MatchNode {
-    pub fn is_winner(&self) -> Team {
+    pub fn is_winner(&self) -> Option<&Team> {
+        if self.team1.is_none() {
+            return self.team2.as_ref();
+        } else if self.team2.is_none() {
+            return self.team1.as_ref();
+        }
+
         if self.score1 > self.score2 {
-            self.team1.clone().unwrap()
+            self.team1.as_ref()
+        } else if self.score1 < self.score2 {
+            self.team2.as_ref()
         } else {
-            self.team2.clone().unwrap()
+            return None;
         }
     }
 }
@@ -141,7 +149,12 @@ pub fn next_round(tournamentui: &mut TournamentUI) {
     let mut teams: Vec<Team> = Vec::new();
     // Create new matches from winners
     for matches in tournamentui.matches.iter() {
-        teams.push(matches.is_winner());
+        match matches.is_winner() {
+            Some(team) => {
+                teams.push(team.clone());
+            }
+            None => (),
+        }
     }
 
     tournamentui.matches.clear();

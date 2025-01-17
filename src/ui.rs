@@ -132,75 +132,64 @@ impl TournamentUI {
     fn render_ongoing_match(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         self.round_number = 1;
 
+        // Generate matches based on current state
         crate::tournament::generate_matches(self);
 
         let teams = &mut self.matches;
 
-        // egui::ScrollArea::both().show(ui, |ui| {
-        for (i, team) in teams.iter_mut().enumerate() {
-            let x_offset = 20.0;
-            let y_offset = 10.0 + (i as f32 * 120.0);
+        // Render matches in a vertical scrollable area
+        egui::ScrollArea::vertical()
+            .auto_shrink([false; 2])
+            .show(ui, |ui| {
+                for (i, team) in teams.iter_mut().enumerate() {
+                    ui.group(|ui| {
+                        ui.label(format!("Match {}", i + 1));
 
-            // Create a window for each match
-            egui::Window::new(format!("Match {}", i + 1))
-                .title_bar(false)
-                .movable(false)
-                .collapsible(false)
-                .anchor(egui::Align2::LEFT_TOP, egui::vec2(x_offset, y_offset))
-                .show(ctx, |ui| {
-                    match &team.team1 {
-                        Some(team1) => {
-                            ui.label(format!("Team {}: {}", i + 1, team1.team_to_string()));
-
-                            // Add DragValue for the score input
+                        if let Some(team1) = &team.team1 {
                             ui.horizontal(|ui| {
-                                ui.label("Score: ");
+                                ui.label(format!("Team {}: {}", i + 1, team1.team_to_string()));
                                 ui.add(
-                                    egui::TextEdit::singleline(&mut team.score1.to_string())
-                                        .hint_text("Enter score"),
+                                    egui::DragValue::new(&mut team.score1)
+                                        .speed(1.0)
+                                        .range(0..=100),
                                 );
                             });
                         }
-                        None => (),
-                    };
 
-                    match &team.team2 {
-                        Some(team2) => {
-                            ui.separator();
+                        ui.separator();
 
-                            ui.label(format!("Team {}: {}", i + 1, team2.team_to_string()));
-
-                            // Add DragValue for the score input
+                        if let Some(team2) = &team.team2 {
                             ui.horizontal(|ui| {
-                                ui.label("Score: ");
+                                ui.label(format!("Team {}: {}", i + 1, team2.team_to_string()));
                                 ui.add(
-                                    egui::TextEdit::singleline(&mut team.score1.to_string())
-                                        .hint_text("Enter score"),
+                                    egui::DragValue::new(&mut team.score2)
+                                        .speed(1.0)
+                                        .range(0..=100),
                                 );
                             });
                         }
-                        None => (),
-                    };
-                });
-        }
-        // });
-
-        egui::TopBottomPanel::bottom("next_round_value").show(ctx, |ui| {
-            ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
-                let mut button_content = String::new();
-                if self.matches.len() == 1 {
-                    button_content = "Finish Tournament".to_string();
-                } else {
-                    button_content = "Next Round".to_string();
-                }
-
-                let next_round_button = ui.add_enabled(true, Button::new(button_content));
-
-                if next_round_button.clicked() {
-                    crate::tournament::next_round(self);
-                    self.round_number += 1;
+                    });
+                    ui.add_space(10.0);
                 }
             });
+
+        // Render Next Round or Finish button at the bottom
+        egui::TopBottomPanel::bottom("next_round_value").show(ctx, |ui| {
+            ui.with_layout(
+                egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
+                |ui| {
+                    let button_label = if self.matches.len() == 1 {
+                        "Finish Tournament"
+                    } else {
+                        "Next Round"
+                    };
+
+                    if ui.button(button_label).clicked() {
+                        crate::tournament::next_round(self);
+                        self.round_number += 1;
+                    }
+                },
+            );
         });
     }
 
