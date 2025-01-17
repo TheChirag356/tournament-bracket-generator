@@ -1,6 +1,6 @@
 [package]
-name = "tournament-generator"
-version = "0.1.0"
+name = "tournament-bracket-generator"
+version = "0.0.2"
 edition = "2021"
 
 [dependencies]
